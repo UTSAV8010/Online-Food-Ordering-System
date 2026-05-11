@@ -1,0 +1,386 @@
+<?php include('../frontend/config/constants.php');
+	  //include('login-check.php');
+
+?>
+<?php
+$restroname=$_SESSION['restro-name'];
+$ei_order_notif = "SELECT order_status from tbl_eipay
+					WHERE order_status='Pending' OR order_status='Processing'OR order_status='OnTheWay'";
+
+$res_ei_order_notif = mysqli_query($conn, $ei_order_notif);
+
+$row_ei_order_notif = mysqli_num_rows($res_ei_order_notif);
+
+$online_order_notif = "SELECT DISTINCT om.order_id 
+                       FROM order_manager om
+                       JOIN online_orders_new oon 
+                       ON om.order_id = oon.order_id
+                       WHERE (om.order_status='Pending' 
+                              OR om.order_status='Processing' 
+                              OR om.order_status='OnTheWay')
+                       AND oon.restro_name='$restroname'";
+
+$res_online_order_notif = mysqli_query($conn, $online_order_notif);
+
+$row_online_order_notif = mysqli_num_rows($res_online_order_notif);
+
+$stock_notif = "SELECT stock FROM tbl_restro_food_item
+				WHERE stock<=$low_stock_threshold and restro_name = '$restroname'";
+
+$res_stock_notif = mysqli_query($conn, $stock_notif);
+$row_stock_notif = mysqli_num_rows($res_stock_notif);
+
+//Message Notification
+$message_notif = "SELECT message_status FROM message
+				 WHERE message_status = 'unread'";
+$res_message_notif = mysqli_query($conn, $message_notif);
+$row_message_notif = mysqli_num_rows($res_message_notif);
+
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<!-- Boxicons -->
+	<link href='https://unpkg.com/boxicons@2.0.9/css/boxicons.min.css' rel='stylesheet'>
+	<!-- My CSS -->
+	<link rel="stylesheet" href="style-admin.css">
+    <link rel="icon" 
+      type="image/png" 
+      href="../images/logo2.png">
+
+	<title>Restaurant-management </title>
+	<style>
+		a.clickable {
+			color: gray  !important;
+			pointer-events: auto !important; 
+			text-decoration: none !important;
+		}
+		
+		a.clickable:hover {
+			color: #007bff !important; 
+		}
+		
+		</style>
+</head>
+<body>
+
+
+	<!-- SIDEBAR -->
+	<section id="sidebar">
+		<a href="index.php" class="brand">
+		<img src="../images/logo2.png" width="120px" alt="">
+		</a>
+		<ul class="side-menu top">
+			<li >
+				<a href="index.php">
+					<i class='bx bxs-dashboard' ></i>
+					<span class="text">Dashboard</span>
+				</a>
+			</li>
+			
+			<li>
+				<a href="manage-online-order.php">
+					<i class='bx bxs-cart'></i>
+					<span class="text">Online Orders&nbsp;</span>
+						<?php 
+					if($row_online_order_notif>0)
+					{
+						?>
+						<span class="num-ei"><?php echo $row_online_order_notif; ?></span>
+						<?php
+					}
+					else
+					{
+						?>
+						<span class=""> </span>
+						<?php
+					}
+					?>
+				</a>
+			</li>
+			
+			<li class="active">
+				<a href="manage-category.php">
+					<i class='bx bxs-category'></i>
+					<span class="text">Category</span>
+				</a>
+			</li>
+			<li>
+				<a href="manage-food.php">
+					<i class='bx bxs-food-menu'></i>
+					<span class="text">Food Menu</span>
+				</a>
+			</li>
+            <li class="">
+				<a href="inventory.php">
+					<i class='bx bxs-box'></i>
+					<span class="text">Inventory</span>
+					<?php 
+					if($row_stock_notif>0)
+					{
+						?>
+                    <span class="num-ei">
+                        <?php echo $row_stock_notif; ?>
+                    </span>
+                    <?php
+					}
+					else
+					{
+						?>
+                    <span class=""> </span>
+                    <?php
+					}
+					?>
+				</a>
+			</li>
+			
+			
+			<li   >
+                <a href="manage-review.php">
+                <i class="bx bx-star"></i>
+                    <span class="text">Customer Review</span>
+                </a>
+            </li>
+			<li  class="" >
+                <a href="manage-repeat-rate.php">
+                <i class="bx bx-bar-chart-alt-2"></i>
+                    <span class="text">Your Repeat Rate</span>
+                </a>
+            </li>
+            <li class="">
+                <a href="update-password.php">
+                <i class="bx bx-lock"></i>
+                    <span class="text">Change Password</span>
+                </a>
+            </li>
+		</ul>
+		<ul class="side-menu">
+			<li>
+				<a href="settings.php"><i class='bx bxs-cog'></i>
+					<span class="text">Settings</span>
+				</a>
+			</li>
+			<li>
+				<a href="logout.php" class="logout">
+					<i class='bx bxs-log-out-circle' ></i>
+					<span class="text">Logout</span>
+				</a>
+			</li>
+		</ul>
+	</section>
+	<!-- SIDEBAR -->
+
+
+
+	<!-- CONTENT -->
+	<section id="content">
+		<!-- NAVBAR -->
+		<nav>
+			<i class='bx bx-menu' ></i>
+			<a href="#" class="nav-link"></a>
+			<form action="#">
+				<div class="form-input">
+					<input type="search" placeholder="Search...">
+					<button type="submit" class="search-btn"><i class='bx bx-search' ></i></button>
+				</div>
+			</form>
+			<input type="checkbox" id="switch-mode" hidden>
+			<label for="switch-mode" class="switch-mode"></label>
+			
+		<div class="notification" >
+		<div class="action notif" onclick="menuToggle();">
+        <i class='bx bxs-bell' onclick="menuToggle();"></i>
+        <div class="notif_menu">
+            <ul>
+                <?php 
+                // Check Stock Notifications
+                if ($row_stock_notif > 0) {
+                    $stock_message = $row_stock_notif == 1 ? "Item is" : "Items are";
+                    echo "<li><a href='inventory.php?low=1'>$row_stock_notif&nbsp;$stock_message running out of stock</a></li>";
+                }
+
+                // Check Online Orders
+                if ($row_online_order_notif > 0) {
+                    echo "<li><a href='manage-online-order.php?remaining=1'>$row_online_order_notif&nbsp;New Online Order</a></li>";
+                }
+
+                // Check EI Orders
+                if ($row_ei_order_notif > 0) {
+                    echo "<li><a href='manage-online-order.php'>$row_ei_order_notif&nbsp;New EI Order</a></li>";
+                }
+                ?>
+            </ul>
+        </div>
+        <?php 
+        // Calculate total notifications
+        $total_notif = $row_stock_notif + $row_online_order_notif + $row_ei_order_notif;
+        if ($total_notif > 0) {
+            echo "<span class='num'>$total_notif</span>";
+        } else {
+            echo "<span class=''></span>";
+        }
+        ?>
+    </div>
+			</div>
+			
+		</nav>
+		<!-- NAVBAR -->
+
+		<!-- MAIN -->
+		<main>
+    <div class="head-title">
+        <div class="left">
+            <h1>Add Category</h1>
+            <ul class="breadcrumb">
+                <li><a href="index.php" class="clickable">Dashboard</a></li>
+                <li><i class='bx bx-chevron-right'></i></li>
+                <li><a class="clickable" href="manage-category.php">Manage Category</a></li>
+                <li><i class='bx bx-chevron-right'></i></li>
+                <li><a class="active" href="add-category.php">Add Category</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <?php
+    if(isset($_SESSION['add'])) { echo $_SESSION['add']; unset($_SESSION['add']); }
+    if(isset($_SESSION['upload'])) { echo $_SESSION['upload']; unset($_SESSION['upload']); }
+    ?>
+    
+    <br/>
+    <div class="table-data">
+        <div class="order">
+            <div class="head">
+                <form action="" method="POST" enctype="multipart/form-data" onsubmit="return validateForm()">
+                    <table class="rtable">
+                        <tr>
+                            <td>Title</td>
+                            <td>
+                                <input type="text" name="title" id="ip2">
+                                <span class="error" id="title-error"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Select Image</td>
+                            <td>
+                                <input type="file" name="image" id="image">
+                                <span class="error" id="image-error"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Featured</td>
+                            <td>
+                                <input type="radio" name="featured" value="Yes"> Yes
+                                <input type="radio" name="featured" value="No"> No
+                                <span class="error" id="featured-error"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Active</td>
+                            <td>
+                                <input type="radio" name="active" value="Yes"> Yes
+                                <input type="radio" name="active" value="No"> No
+                                <span class="error" id="active-error"></span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <input type="submit" name="submit" value="Add Category" class="button-8" role="button">  
+                            </td>
+                        </tr>
+                    </table>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function validateForm() {
+            let isValid = true;
+            document.getElementById("title-error").innerHTML = "";
+            document.getElementById("image-error").innerHTML = "";
+            document.getElementById("featured-error").innerHTML = "";
+            document.getElementById("active-error").innerHTML = "";
+
+            let title = document.getElementById("ip2").value.trim();
+            if (title === "") {
+                document.getElementById("title-error").innerHTML = "Title is required";
+                isValid = false;
+            }
+
+            let image = document.getElementById("image").value;
+            if (image === "") {
+                document.getElementById("image-error").innerHTML = "Please select an image";
+                isValid = false;
+            }
+
+            let featuredChecked = document.querySelector('input[name="featured"]:checked');
+            if (!featuredChecked) {
+                document.getElementById("featured-error").innerHTML = "Please select Featured option";
+                isValid = false;
+            }
+
+            let activeChecked = document.querySelector('input[name="active"]:checked');
+            if (!activeChecked) {
+                document.getElementById("active-error").innerHTML = "Please select Active option";
+                isValid = false;
+            }
+
+            return isValid;
+        }
+    </script>
+
+    <?php
+    if(isset($_POST['submit'])) {
+        $title = $_POST['title'];
+        $restro_name = $_SESSION['restro-name'];
+        $featured = isset($_POST['featured']) ? $_POST['featured'] : "No";
+        $active = isset($_POST['active']) ? $_POST['active'] : "No";
+
+        $image_name = "";
+        if(isset($_FILES['image']['name']) && $_FILES['image']['name'] != "") {
+            $ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+            $image_name = "Food_Category_" . rand(000, 99999) . '.' . $ext;
+            $source_path = $_FILES['image']['tmp_name'];
+            $destination_path = "uploads/category/" . $image_name;
+            $upload = move_uploaded_file($source_path, $destination_path);
+
+            if(!$upload) {
+                $_SESSION['upload'] = "<div class='error text-center'>Failed to Upload Image</div>";
+                header('location:' . SITEURL . 'add-category.php');
+                exit();
+            }
+        }
+
+        $sql = "INSERT INTO tbl_rcategory_notapproved (title, image_name, featured, active, status, restro_name) 
+                VALUES ('$title', '$image_name', '$featured', '$active', 'not_approved', '$restro_name')";
+
+        $res = mysqli_query($conn, $sql);
+
+        if($res) {
+            $_SESSION['add'] = "<div class='success text-center'>Category Added Successfully</div>";
+            header('location:' . SITEURL . 'manage-category.php');
+        } else {
+            $_SESSION['add'] = "<div class='error text-center'>Failed to Add Category. Error: " . mysqli_error($conn) . "</div>";
+            header('location:' . SITEURL . 'add-category.php');
+        }
+    }
+    ?>
+</main>
+
+
+		<!-- MAIN -->
+	</section>
+	<!-- CONTENT -->
+	
+
+	<script src="script-admin.js"></script>
+</body>
+</html>
+
+
+
+

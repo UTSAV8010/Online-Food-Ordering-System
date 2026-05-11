@@ -1,0 +1,400 @@
+<?php include('../frontend/config/constants.php');
+      //include('login-check.php'); 
+	  $restroname=$_SESSION['restro-name'];
+$ei_order_notif = "SELECT order_status from tbl_eipay
+					WHERE order_status='Pending' OR order_status='Processing'OR order_status='OnTheWay'";
+
+$res_ei_order_notif = mysqli_query($conn, $ei_order_notif);
+
+$row_ei_order_notif = mysqli_num_rows($res_ei_order_notif);
+
+$online_order_notif = "SELECT DISTINCT om.order_id 
+                       FROM order_manager om
+                       JOIN online_orders_new oon 
+                       ON om.order_id = oon.order_id
+                       WHERE (om.order_status='Pending' 
+                              OR om.order_status='Processing' 
+                              OR om.order_status='OnTheWay')
+                       AND oon.restro_name='$restroname'";
+
+$res_online_order_notif = mysqli_query($conn, $online_order_notif);
+
+$row_online_order_notif = mysqli_num_rows($res_online_order_notif);
+
+$stock_notif = "SELECT stock FROM tbl_restro_food_item
+				WHERE stock<=$low_stock_threshold and restro_name = '$restroname'";
+
+$res_stock_notif = mysqli_query($conn, $stock_notif);
+$row_stock_notif = mysqli_num_rows($res_stock_notif);
+
+//Message Notification
+$message_notif = "SELECT message_status FROM message
+				 WHERE message_status = 'unread'";
+$res_message_notif = mysqli_query($conn, $message_notif);
+$row_message_notif = mysqli_num_rows($res_message_notif);
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href='https://unpkg.com/boxicons@2.0.9/css/boxicons.min.css' rel='stylesheet'>
+	<link rel="stylesheet" href="style-admin.css">
+	<link rel="icon" 
+      type="image/png" 
+      href="../images/logo2.png">
+
+	<title> Restaurant-management</title>
+	<style>
+		a.clickable {
+			color: gray  !important;
+			pointer-events: auto !important; 
+			text-decoration: none !important;
+		}
+		
+		a.clickable:hover {
+			color: #007bff !important; 
+		}
+		
+		</style>
+</head>
+<body>
+
+	<section id="sidebar">
+		<a href="index.php" class="brand">
+			<img src="../images/logo2.png" width="80px" alt="">
+		</a>
+		<ul class="side-menu top">
+			<li >
+				<a href="index.php">
+					<i class='bx bxs-dashboard' ></i>
+					<span class="text">Dashboard</span>
+				</a>
+			</li>
+		
+			<li class="active">
+				<a href="manage-online-order.php">
+					<i class='bx bxs-cart'></i>
+					<span class="text">Online Orders&nbsp;</span>
+						<?php 
+					if($row_online_order_notif>0)
+					{
+						?>
+						<span class="num-ei"><?php echo $row_online_order_notif; ?></span>
+						<?php
+					}
+					else
+					{
+						?>
+						<span class=""> </span>
+						<?php
+					}
+					?>
+				</a>
+			</li>
+			
+			<li>
+				<a href="manage-category.php">
+					<i class='bx bxs-category'></i>
+					<span class="text">Category</span>
+				</a>
+			</li>
+			<li>
+				<a href="manage-food.php">
+					<i class='bx bxs-food-menu'></i>
+					<span class="text">Food Menu</span>
+				</a>
+			</li>
+			<li class="">
+				<a href="inventory.php">
+					<i class='bx bxs-box'></i>
+					<span class="text">Inventory</span>
+					<?php 
+					if($row_stock_notif>0)
+					{
+						?>
+                    <span class="num-ei">
+                        <?php echo $row_stock_notif; ?>
+                    </span>
+                    <?php
+					}
+					else
+					{
+						?>
+                    <span class=""> </span>
+                    <?php
+					}
+					?>
+				</a>
+			</li>
+			
+			<li   >
+                <a href="manage-review.php">
+                <i class="bx bx-star"></i>
+                    <span class="text">Your Review</span>
+                </a>
+            </li>
+			<li  class="" >
+                <a href="manage-repeat-rate.php">
+                <i class="bx bx-bar-chart-alt-2"></i>
+                    <span class="text">Your Repeat Rate</span>
+                </a>
+            </li>
+            <li class="">
+                <a href="update-password.php">
+                <i class="bx bx-lock"></i>
+                    <span class="text">Change Password</span>
+                </a>
+            </li>
+		</ul>
+		<ul class="side-menu">
+			<li>
+				<a href="settings.php"><i class='bx bxs-cog'></i>
+					<span class="text">Settings</span>
+				</a>
+			</li>
+			<li>
+				<a href="logout.php" class="logout">
+					<i class='bx bxs-log-out-circle' ></i>
+					<span class="text">Logout</span>
+				</a>
+			</li>
+		</ul>
+	</section>
+	<section id="content">
+		<nav>
+			<i class='bx bx-menu' ></i>
+			<a href="#" class="nav-link"></a>
+			<form action="#">
+				<div class="form-input">
+					<input type="search" placeholder="Search...">
+					<button type="submit" class="search-btn"><i class='bx bx-search' ></i></button>
+				</div>
+			</form>
+			<input type="checkbox" id="switch-mode" hidden>
+			<label for="switch-mode" class="switch-mode"></label>
+			
+			<div class="notification" >
+			<div class="action notif" onclick="menuToggle();">
+        <i class='bx bxs-bell' onclick="menuToggle();"></i>
+        <div class="notif_menu">
+            <ul>
+                <?php 
+                // Check Stock Notifications
+                if ($row_stock_notif > 0) {
+                    $stock_message = $row_stock_notif == 1 ? "Item is" : "Items are";
+                    echo "<li><a href='inventory.php?low=1'>$row_stock_notif&nbsp;$stock_message running out of stock</a></li>";
+                }
+
+                // Check Online Orders
+                if ($row_online_order_notif > 0) {
+                    echo "<li><a href='manage-online-order.php?remaining=1'>$row_online_order_notif&nbsp;New Online Order</a></li>";
+                }
+
+                // Check EI Orders
+                if ($row_ei_order_notif > 0) {
+                    echo "<li><a href='manage-online-order.php'>$row_ei_order_notif&nbsp;New EI Order</a></li>";
+                }
+                ?>
+            </ul>
+        </div>
+        <?php 
+        // Calculate total notifications
+        $total_notif = $row_stock_notif + $row_online_order_notif + $row_ei_order_notif;
+        if ($total_notif > 0) {
+            echo "<span class='num'>$total_notif</span>";
+        } else {
+            echo "<span class=''></span>";
+        }
+        ?>
+    </div>
+			</div>
+			
+		</nav>
+		<main>
+			<div class="head-title">
+				<div class="left">
+					<h1>Update Online Order</h1>
+					<ul class="breadcrumb">
+						<li>
+							<a href="index.php" class="clickable">
+								Dashboard
+							</a>
+						</li>
+						<li><i class='bx bx-chevron-right' ></i></li>
+						<li>
+							<a class="clickable" href="manage-online-order.php">Online  Orders</a>
+						</li>
+						<li><i class='bx bx-chevron-right' ></i></li>
+						<li>
+							<a class="active" href="manage-online-order.php">Update  Orders</a>
+						</li>
+					</ul>
+				</div>
+</div>
+
+<br>
+
+        <?php 
+ 
+        $id=$_GET['id'];
+        $sql="SELECT * FROM order_manager WHERE order_id=$id";
+        $res=mysqli_query($conn, $sql);
+
+        if($res == true)
+        {
+            $count = mysqli_num_rows($res);
+            if($count==1)
+            {
+                $row=mysqli_fetch_assoc($res);
+
+                $order_id = $row['order_id'];
+                $cus_name = $row['cus_name'];
+                $cus_email = $row['cus_email'];
+                $cus_add1 = $row['cus_add1'];
+                $cus_phone = $row['cus_phone'];
+                $payment_status = $row['payment_status'];
+                $order_status = $row['order_status'];
+            }
+            else
+			{
+                header('location:'.SITEURL.'manage-online-order.php');
+            }
+        }
+
+        
+        ?>
+		<div class="table-data">
+			<div class="order">
+			<div class="head">
+
+			<form action="" method="POST" onsubmit="return validateForm()">
+   
+
+
+        <table class="rtable">
+           
+            <tr>
+                <td>Customer Name</td>
+                <td>
+                    <input type="text" name="cus_name" value="<?php echo $cus_name; ?>" id="ip2" readonly>
+                </td>
+            </tr>
+            <tr>
+                <td>Email</td>
+                <td>
+                    <input type="text" name="cus_email" value="<?php echo $cus_email; ?>" id="ip2" readonly>
+                </td>
+            </tr>
+            <tr>
+                <td>Address</td>
+                <td>
+                    <input type="text" name="cus_add1" value="<?php echo $cus_add1; ?>" id="ip2"  readonly>
+                </td>
+            </tr>
+
+            <tr>
+                <td>Phone</td>
+                <td>
+                    <input type="text" name="cus_phone" value="<?php echo $cus_phone; ?>" id="ip2" readonly>
+                </td>
+            </tr>
+            <tr>
+                <td>Order Status</td>
+                <td>
+                     <select name="order_status">
+    <option value="" <?php if(empty($order_status)) echo "selected"; ?>>Select Status</option>
+    <option <?php if($order_status=="Pending") echo "selected"; ?> value="Pending">Pending</option>
+    <option <?php if($order_status=="Processing") echo "selected"; ?> value="Processing">Processing</option>
+    <option <?php if($order_status=="Cancelled") echo "selected"; ?> value="Cancelled">Cancelled</option>
+</select>
+<div id="error-message"></div>
+
+                </td>
+            </tr>
+
+            <tr>
+                <td colspan="2">
+                    <input type="hidden" name="order_id" value="<?php echo $order_id; ?>">
+                    <input type="submit" name="submit" value="Update" class="button-8" role="button">
+                </td>
+            </tr>
+
+        </table>
+
+
+
+        </form>
+	</div>
+    </div>
+</div>
+	</div>
+
+<?php 
+
+if(isset($_POST['submit']))
+{
+
+
+     $order_id = $_POST['order_id'];
+     $cus_name = $_POST['cus_name'];
+     $cus_email = $_POST['cus_email'];
+     $cus_add1 = $_POST['cus_add1'];
+     $cus_phone = $_POST['cus_phone'];
+     $order_status = $_POST['order_status'];
+
+
+     $sql = "UPDATE order_manager SET
+     order_id = '$order_id',
+     cus_name = '$cus_name',
+     cus_email = '$cus_email',
+     cus_add1 = '$cus_add1',
+     cus_phone = '$cus_phone',
+     order_status = '$order_status' 
+     WHERE order_id='$order_id'
+     ";
+
+     $res = mysqli_query($conn, $sql);
+
+     if($res == true){
+
+         $_SESSION['update'] = "<div class='success'>Order Updated Successfully</div>";
+         header('location:'.SITEURL.'manage-online-order.php');
+     }
+
+     else{
+        $_SESSION['update'] = "<div class='error'>Failed to Update Order</div>";
+         header('location:'.SITEURL.'manage-online-order.php');
+         
+     }
+
+}
+?>
+
+	
+		</main>
+		<script>
+function validateForm() {
+    var orderStatus = document.getElementsByName("order_status")[0].value;
+    var errorDiv = document.getElementById("error-message");
+
+    if (orderStatus === "") {
+        errorDiv.innerHTML = "Please select an order status.";
+        errorDiv.style.color = "red";
+        return false;
+    } else {
+        errorDiv.innerHTML = "";
+        return true;
+    }
+}
+</script>
+
+	</section>
+	<script src="script-admin.js"></script>
+</body>
+</html>
+
+
+
+
